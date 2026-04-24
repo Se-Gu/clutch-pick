@@ -4,7 +4,7 @@ import type { DailyTally, Game, GameDay, Prediction, Profile } from './types'
 export async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data } = await supabase
     .from('profiles')
-    .select('id, email, display_name')
+    .select('id, email, display_name, baseline_correct')
     .eq('id', userId)
     .maybeSingle()
   return data as Profile | null
@@ -13,7 +13,7 @@ export async function fetchProfile(userId: string): Promise<Profile | null> {
 export async function fetchOtherProfile(currentUserId: string): Promise<Profile | null> {
   const { data } = await supabase
     .from('profiles')
-    .select('id, email, display_name')
+    .select('id, email, display_name, baseline_correct')
     .neq('id', currentUserId)
     .limit(1)
   return (data?.[0] as Profile) ?? null

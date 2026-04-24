@@ -33,12 +33,16 @@ export function TallyScreen() {
   const userName = profile?.display_name ?? 'You'
   const friendName = otherProfile?.display_name ?? 'Friend'
 
+  const userBaseline = profile?.baseline_correct ?? 0
+  const friendBaseline = otherProfile?.baseline_correct ?? 0
+  const hasBaseline = userBaseline > 0 || friendBaseline > 0
+
   const totals = tallies.reduce(
     (acc, d) => ({
       user: acc.user + d.userCorrect,
       friend: acc.friend + d.friendCorrect,
     }),
-    { user: 0, friend: 0 },
+    { user: userBaseline, friend: friendBaseline },
   )
   const leader =
     totals.user > totals.friend
@@ -136,7 +140,7 @@ export function TallyScreen() {
         </h2>
         {loading && tallies.length === 0 ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
-        ) : tallies.length === 0 ? (
+        ) : tallies.length === 0 && !hasBaseline ? (
           <Card className="border-border/30 bg-card/50">
             <CardContent className="p-4">
               <p className="text-sm text-muted-foreground text-center">
@@ -146,6 +150,35 @@ export function TallyScreen() {
           </Card>
         ) : (
           <div className="space-y-2">
+            {hasBaseline && (
+              <Card className="border-border/30 bg-card/50">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Before app</span>
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className={cn(
+                          'font-bold',
+                          userBaseline > friendBaseline && 'text-primary'
+                        )}>
+                          {userBaseline}
+                        </span>
+                        <span className="text-muted-foreground">-</span>
+                        <span className={cn(
+                          'font-bold',
+                          friendBaseline > userBaseline && 'text-accent'
+                        )}>
+                          {friendBaseline}
+                        </span>
+                      </div>
+                      <span className="text-xs font-medium px-2 py-1 rounded-full min-w-[60px] text-center bg-muted text-muted-foreground">
+                        Baseline
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
             {tallies.map((day) => {
               const dayWinner =
                 day.userCorrect > day.friendCorrect
