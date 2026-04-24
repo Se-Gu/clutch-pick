@@ -66,9 +66,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   reload: async () => {
     set({ loading: true })
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
+    const [{ data: sessionData }] = await Promise.all([
+      supabase.auth.getSession(),
+      fetch('/api/sync-today', { method: 'POST' }).catch(() => null),
+    ])
+    const session = sessionData.session
     if (!session) {
       set({ ...resetState, loading: false })
       return
