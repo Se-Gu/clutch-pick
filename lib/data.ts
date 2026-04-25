@@ -68,18 +68,6 @@ export async function fetchGames(gameDayId: string): Promise<Game[]> {
   return (data as Game[]) ?? []
 }
 
-export async function fetchPredictionsForDay(
-  gameDayId: string,
-  userId: string,
-): Promise<Prediction[]> {
-  const { data } = await supabase
-    .from('predictions')
-    .select('id, game_id, user_id, picked_team, submitted_at, games!inner(game_day_id)')
-    .eq('user_id', userId)
-    .eq('games.game_day_id', gameDayId)
-  return (data as unknown as Prediction[]) ?? []
-}
-
 export async function hasUserSubmittedDay(
   gameDayId: string,
   userId: string,

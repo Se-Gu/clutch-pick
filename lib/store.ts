@@ -17,6 +17,7 @@ interface AppStore {
   gameDay: GameDay | null
   games: Game[]
   userPicks: Record<string, string> // gameId -> picked team name
+  friendPicks: Record<string, string>
   hasSubmitted: boolean
   friendHasSubmitted: boolean
 
@@ -48,6 +49,7 @@ const resetState = {
   gameDay: null,
   games: [],
   userPicks: {},
+  friendPicks: {},
   hasSubmitted: false,
   friendHasSubmitted: false,
   prevGameDay: null,
@@ -61,19 +63,25 @@ async function loadTodayState(
   userId: string,
   otherUserId: string | null,
 ) {
-  const games = await data.fetchGames(gameDay.id)
-  const [preds, hasSub, friendSub] = await Promise.all([
-    data.fetchPredictionsForDay(gameDay.id, userId),
+  const [games, allPreds, hasSub, friendSub] = await Promise.all([
+    data.fetchGames(gameDay.id),
+    data.fetchAllPredictionsForDay(gameDay.id),
     data.hasUserSubmittedDay(gameDay.id, userId),
     otherUserId
       ? data.hasUserSubmittedDay(gameDay.id, otherUserId)
       : Promise.resolve(false),
   ])
   const userPicks: Record<string, string> = {}
-  for (const p of preds) userPicks[p.game_id] = p.picked_team
+  const friendPicks: Record<string, string> = {}
+  for (const p of allPreds) {
+    if (p.user_id === userId) userPicks[p.game_id] = p.picked_team
+    else if (otherUserId && p.user_id === otherUserId)
+      friendPicks[p.game_id] = p.picked_team
+  }
   return {
     games,
     userPicks,
+    friendPicks,
     hasSubmitted: hasSub,
     friendHasSubmitted: friendSub,
   }
@@ -196,11 +204,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   refreshFriendStatus: async () => {
     const s = get()
-    if (!s.gameDay || !s.otherProfile) return
-    const friendSub = await data.hasUserSubmittedDay(
-      s.gameDay.id,
-      s.otherProfile.id,
+    if (!s.gameDay || !s.userId) return
+    const today = await loadTodayState(
+      s.gameDay,
+      s.userId,
+      s.otherProfile?.id ?? null,
     )
-    set({ friendHasSubmitted: friendSub })
+    set(today)
   },
 }))

@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect } from 'react'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { CopyButton } from '@/components/copy-button'
 import { Logo } from '@/components/logo'
@@ -14,7 +13,6 @@ export function WaitingScreen() {
     userPicks,
     friendHasSubmitted,
     refreshFriendStatus,
-    setActiveTab,
     otherProfile,
   } = useAppStore()
 
@@ -61,11 +59,7 @@ export function WaitingScreen() {
               <h2 className="text-xl font-bold text-foreground mb-2">
                 Your picks are locked
               </h2>
-              <p className="text-muted-foreground">
-                {friendHasSubmitted
-                  ? `${friendName} has submitted! Go to Reveal to see picks.`
-                  : `Waiting for ${friendName}…`}
-              </p>
+              <p className="text-muted-foreground">Waiting for {friendName}…</p>
             </div>
 
             {/* Your Picks Summary */}
@@ -87,18 +81,10 @@ export function WaitingScreen() {
 
             {/* Actions */}
             <div className="space-y-3 pt-2">
-              {!friendHasSubmitted && (
-                <CopyButton
-                  getText={buildReminderText}
-                  label="Copy Reminder to WhatsApp"
-                />
-              )}
-
-              {friendHasSubmitted && (
-                <Button onClick={() => setActiveTab('reveal')} className="w-full h-12">
-                  View Reveals →
-                </Button>
-              )}
+              <CopyButton
+                getText={buildReminderText}
+                label="Copy Reminder to WhatsApp"
+              />
             </div>
           </CardContent>
         </Card>

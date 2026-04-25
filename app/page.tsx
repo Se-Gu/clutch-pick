@@ -4,13 +4,21 @@ import { useEffect } from 'react'
 import { LoginScreen } from '@/components/login-screen'
 import { TodayScreen } from '@/components/today-screen'
 import { WaitingScreen } from '@/components/waiting-screen'
+import { TodayRevealScreen } from '@/components/today-reveal-screen'
 import { RevealScreen } from '@/components/reveal-screen'
 import { TallyScreen } from '@/components/tally-screen'
 import { BottomNav } from '@/components/bottom-nav'
 import { useAppStore } from '@/lib/store'
 
 export default function Home() {
-  const { userId, authChecked, activeTab, hasSubmitted, bootstrap } = useAppStore()
+  const {
+    userId,
+    authChecked,
+    activeTab,
+    hasSubmitted,
+    friendHasSubmitted,
+    bootstrap,
+  } = useAppStore()
 
   useEffect(() => {
     bootstrap()
@@ -30,7 +38,14 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-background">
-      {activeTab === 'today' && (hasSubmitted ? <WaitingScreen /> : <TodayScreen />)}
+      {activeTab === 'today' &&
+        (!hasSubmitted ? (
+          <TodayScreen />
+        ) : !friendHasSubmitted ? (
+          <WaitingScreen />
+        ) : (
+          <TodayRevealScreen />
+        ))}
       {activeTab === 'reveal' && <RevealScreen />}
       {activeTab === 'tally' && <TallyScreen />}
       <BottomNav />
