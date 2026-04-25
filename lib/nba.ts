@@ -1,5 +1,8 @@
 import 'server-only'
 import { getSupabaseAdmin } from './supabase-admin'
+import { getDayBefore, getUsEasternDate } from './types'
+
+export { getUsEasternDate } from './types'
 
 const BDL_BASE = 'https://api.balldontlie.io/v1'
 
@@ -20,19 +23,6 @@ export interface BdlGame {
   visitor_team: BdlTeam
 }
 
-export function getUsEasternDate(now: Date = new Date()): string {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/New_York',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(now)
-  const y = parts.find((p) => p.type === 'year')!.value
-  const m = parts.find((p) => p.type === 'month')!.value
-  const d = parts.find((p) => p.type === 'day')!.value
-  return `${y}-${m}-${d}`
-}
-
 export async function fetchBdlGames(date: string): Promise<BdlGame[]> {
   const apiKey = process.env.BALLDONTLIE_API_KEY
   if (!apiKey) throw new Error('Missing BALLDONTLIE_API_KEY')
@@ -49,7 +39,17 @@ export async function fetchBdlGames(date: string): Promise<BdlGame[]> {
 }
 
 function isFinal(status: string): boolean {
-  return status.toLowerCase() === 'final'
+  return status.toLowerCase().startsWith('final')
+}
+
+export async function syncRecentDays(): Promise<SyncResult[]> {
+  const today = getUsEasternDate()
+  const yesterday = getDayBefore(today)
+  const results = await Promise.all([
+    syncGamesForDate(today),
+    syncGamesForDate(yesterday),
+  ])
+  return results
 }
 
 export interface SyncResult {

@@ -62,3 +62,22 @@ export function formatShortDate(dateStr: string): string {
     timeZone: 'Europe/Istanbul',
   })
 }
+
+export function getUsEasternDate(now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now)
+  const y = parts.find((p) => p.type === 'year')!.value
+  const m = parts.find((p) => p.type === 'month')!.value
+  const d = parts.find((p) => p.type === 'day')!.value
+  return `${y}-${m}-${d}`
+}
+
+export function getDayBefore(dateStr: string): string {
+  const d = new Date(`${dateStr}T12:00:00Z`)
+  d.setUTCDate(d.getUTCDate() - 1)
+  return d.toISOString().slice(0, 10)
+}

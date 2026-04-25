@@ -1,5 +1,12 @@
 import { supabase } from './supabase'
-import type { DailyTally, Game, GameDay, Prediction, Profile } from './types'
+import {
+  getUsEasternDate,
+  type DailyTally,
+  type Game,
+  type GameDay,
+  type Prediction,
+  type Profile,
+} from './types'
 
 export async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data } = await supabase
@@ -20,13 +27,36 @@ export async function fetchOtherProfile(currentUserId: string): Promise<Profile 
 }
 
 export async function fetchCurrentGameDay(): Promise<GameDay | null> {
+  const today = getUsEasternDate()
   const { data } = await supabase
     .from('game_days')
     .select('id, nba_date, first_game_starts_at, status')
-    .eq('status', 'open')
-    .order('first_game_starts_at', { ascending: true })
+    .eq('nba_date', today)
+    .maybeSingle()
+  return (data as GameDay) ?? null
+}
+
+export async function fetchPreviousGameDay(): Promise<GameDay | null> {
+  const today = getUsEasternDate()
+  const { data } = await supabase
+    .from('game_days')
+    .select('id, nba_date, first_game_starts_at, status')
+    .lt('nba_date', today)
+    .order('nba_date', { ascending: false })
     .limit(1)
   return (data?.[0] as GameDay) ?? null
+}
+
+export async function fetchAllPredictionsForDay(
+  gameDayId: string,
+): Promise<Prediction[]> {
+  const { data } = await supabase
+    .from('predictions')
+    .select(
+      'id, game_id, user_id, picked_team, submitted_at, games!inner(game_day_id)',
+    )
+    .eq('games.game_day_id', gameDayId)
+  return (data as unknown as Prediction[]) ?? []
 }
 
 export async function fetchGames(gameDayId: string): Promise<Game[]> {

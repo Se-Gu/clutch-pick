@@ -13,12 +13,18 @@ interface AppStore {
   authChecked: boolean
   authListenerAttached: boolean
 
-  // Game day
+  // Today's game day
   gameDay: GameDay | null
   games: Game[]
   userPicks: Record<string, string> // gameId -> picked team name
   hasSubmitted: boolean
   friendHasSubmitted: boolean
+
+  // Previous (yesterday's) game day
+  prevGameDay: GameDay | null
+  prevGames: Game[]
+  prevUserPicks: Record<string, string>
+  prevFriendPicks: Record<string, string>
 
   // UI
   activeTab: TabId
@@ -44,6 +50,52 @@ const resetState = {
   userPicks: {},
   hasSubmitted: false,
   friendHasSubmitted: false,
+  prevGameDay: null,
+  prevGames: [],
+  prevUserPicks: {},
+  prevFriendPicks: {},
+}
+
+async function loadTodayState(
+  gameDay: GameDay,
+  userId: string,
+  otherUserId: string | null,
+) {
+  const games = await data.fetchGames(gameDay.id)
+  const [preds, hasSub, friendSub] = await Promise.all([
+    data.fetchPredictionsForDay(gameDay.id, userId),
+    data.hasUserSubmittedDay(gameDay.id, userId),
+    otherUserId
+      ? data.hasUserSubmittedDay(gameDay.id, otherUserId)
+      : Promise.resolve(false),
+  ])
+  const userPicks: Record<string, string> = {}
+  for (const p of preds) userPicks[p.game_id] = p.picked_team
+  return {
+    games,
+    userPicks,
+    hasSubmitted: hasSub,
+    friendHasSubmitted: friendSub,
+  }
+}
+
+async function loadPrevState(
+  prevGameDay: GameDay,
+  userId: string,
+  otherUserId: string | null,
+) {
+  const [prevGames, allPreds] = await Promise.all([
+    data.fetchGames(prevGameDay.id),
+    data.fetchAllPredictionsForDay(prevGameDay.id),
+  ])
+  const prevUserPicks: Record<string, string> = {}
+  const prevFriendPicks: Record<string, string> = {}
+  for (const p of allPreds) {
+    if (p.user_id === userId) prevUserPicks[p.game_id] = p.picked_team
+    else if (otherUserId && p.user_id === otherUserId)
+      prevFriendPicks[p.game_id] = p.picked_team
+  }
+  return { prevGames, prevUserPicks, prevFriendPicks }
 }
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -76,44 +128,34 @@ export const useAppStore = create<AppStore>((set, get) => ({
       return
     }
     const userId = session.user.id
-    const [profile, otherProfile, gameDay] = await Promise.all([
+    const [profile, otherProfile, gameDay, prevGameDay] = await Promise.all([
       data.fetchProfile(userId),
       data.fetchOtherProfile(userId),
       data.fetchCurrentGameDay(),
+      data.fetchPreviousGameDay(),
     ])
-    if (!gameDay) {
-      set({
-        userId,
-        profile,
-        otherProfile,
-        gameDay: null,
-        games: [],
-        userPicks: {},
-        hasSubmitted: false,
-        friendHasSubmitted: false,
-        loading: false,
-      })
-      return
-    }
-    const games = await data.fetchGames(gameDay.id)
-    const [preds, hasSub, friendSub] = await Promise.all([
-      data.fetchPredictionsForDay(gameDay.id, userId),
-      data.hasUserSubmittedDay(gameDay.id, userId),
-      otherProfile
-        ? data.hasUserSubmittedDay(gameDay.id, otherProfile.id)
-        : Promise.resolve(false),
-    ])
-    const userPicks: Record<string, string> = {}
-    for (const p of preds) userPicks[p.game_id] = p.picked_team
+
+    const today = gameDay
+      ? await loadTodayState(gameDay, userId, otherProfile?.id ?? null)
+      : {
+          games: [],
+          userPicks: {},
+          hasSubmitted: false,
+          friendHasSubmitted: false,
+        }
+
+    const prev = prevGameDay
+      ? await loadPrevState(prevGameDay, userId, otherProfile?.id ?? null)
+      : { prevGames: [], prevUserPicks: {}, prevFriendPicks: {} }
+
     set({
       userId,
       profile,
       otherProfile,
       gameDay,
-      games,
-      userPicks,
-      hasSubmitted: hasSub,
-      friendHasSubmitted: friendSub,
+      prevGameDay,
+      ...today,
+      ...prev,
       loading: false,
     })
   },
