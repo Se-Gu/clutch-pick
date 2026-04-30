@@ -35,8 +35,19 @@ export function TodayRosterScreen() {
     return () => clearInterval(id)
   }, [allOthersSubmitted, refreshSubmissionStatuses])
 
+  const pendingProfiles = otherProfiles.filter(
+    (p) => !submittedByUser[p.id],
+  )
+  const pendingNames = pendingProfiles.map((p) => p.display_name)
+
+  const yourTurnLine = () => {
+    if (pendingNames.length === 0) return 'Sıra sende!'
+    if (pendingNames.length === 1) return `Sıra sende: ${pendingNames[0]}!`
+    return `Sıra sizde: ${pendingNames.join(', ')}!`
+  }
+
   const buildReminderText = () =>
-    '🏀 NBA tahminlerimi kilitledim. Sıra sende!\n\nhttps://clutch-pick.vercel.app'
+    `🏀 NBA tahminlerimi kilitledim. ${yourTurnLine()}\n\nhttps://clutch-pick.vercel.app`
 
   const buildRevealText = () => {
     let text = '🏀 Bu Geceki Tahminler Açıklandı!\n\n'
@@ -53,6 +64,32 @@ export function TodayRosterScreen() {
       text += '\n'
     })
     text += 'https://clutch-pick.vercel.app'
+    return text
+  }
+
+  // Spoiler-safe partial: shows whether locked-in picks align without
+  // revealing teams. Used while at least one user still has to pick.
+  const buildPartialText = () => {
+    let text = '🏀 Tahminler kilitleniyor!\n\n'
+    games.forEach((game) => {
+      const picks: string[] = []
+      const myPick = userPicks[game.id]
+      if (myPick) picks.push(myPick)
+      for (const p of otherProfiles) {
+        if (!submittedByUser[p.id]) continue
+        const pick = picksByUser[p.id]?.[game.id]
+        if (pick) picks.push(pick)
+      }
+      const distinct = new Set(picks).size
+      const label =
+        picks.length < 2
+          ? '⏳ Bekleniyor'
+          : distinct === 1
+          ? '🤝 Aynı seçim'
+          : '⚔️ Farklı seçimler'
+      text += `${teamAbbr(game.away_team)} @ ${teamAbbr(game.home_team)}  ${label}\n`
+    })
+    text += `\n⏳ ${yourTurnLine()}\n\nhttps://clutch-pick.vercel.app`
     return text
   }
 
@@ -253,10 +290,18 @@ export function TodayRosterScreen() {
       {/* Sticky CTA */}
       <div className="fixed bottom-20 left-0 right-0 p-4 bg-gradient-to-t from-background via-background to-transparent">
         <CopyButton
-          getText={someoneRevealed ? buildRevealText : buildReminderText}
+          getText={
+            allOthersSubmitted
+              ? buildRevealText
+              : someoneRevealed
+              ? buildPartialText
+              : buildReminderText
+          }
           label={
-            someoneRevealed
+            allOthersSubmitted
               ? 'Copy Picks to WhatsApp'
+              : someoneRevealed
+              ? 'Copy Status to WhatsApp'
               : 'Copy Reminder to WhatsApp'
           }
         />
