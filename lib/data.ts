@@ -12,7 +12,7 @@ import {
 export async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data } = await supabase
     .from('profiles')
-    .select('id, email, display_name, baseline_correct')
+    .select('id, email, display_name')
     .eq('id', userId)
     .maybeSingle()
   return data as Profile | null
@@ -23,7 +23,7 @@ export async function fetchAllOtherProfiles(
 ): Promise<Profile[]> {
   const { data } = await supabase
     .from('profiles')
-    .select('id, email, display_name, baseline_correct')
+    .select('id, email, display_name')
     .neq('id', currentUserId)
     .order('display_name', { ascending: true })
   return (data as Profile[]) ?? []
@@ -148,8 +148,8 @@ export async function fetchLeaderboard(): Promise<LeaderboardEntry[]> {
   const [profiles, days] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, display_name, baseline_correct')
-      .then((r) => (r.data as Pick<Profile, 'id' | 'display_name' | 'baseline_correct'>[] | null) ?? []),
+      .select('id, display_name')
+      .then((r) => (r.data as Pick<Profile, 'id' | 'display_name'>[] | null) ?? []),
     fetchClosedDays(365),
   ])
 
@@ -171,7 +171,6 @@ export async function fetchLeaderboard(): Promise<LeaderboardEntry[]> {
     return {
       userId: p.id,
       displayName: p.display_name,
-      baseline: p.baseline_correct ?? 0,
       totalCorrect: t?.correct ?? 0,
       daysPlayed: t?.days.size ?? 0,
     }
@@ -179,7 +178,7 @@ export async function fetchLeaderboard(): Promise<LeaderboardEntry[]> {
 
   rows.sort(
     (a, b) =>
-      b.baseline + b.totalCorrect - (a.baseline + a.totalCorrect) ||
+      b.totalCorrect - a.totalCorrect ||
       a.displayName.localeCompare(b.displayName),
   )
   return rows

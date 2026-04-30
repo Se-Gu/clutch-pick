@@ -48,18 +48,13 @@ export function TallyScreen() {
   const buildScoreboardText = () => {
     let text = '🏀 NBA Picks Leaderboard\n\n'
     leaderboard.forEach((e, i) => {
-      const total = e.baseline + e.totalCorrect
-      text += `${i + 1}. ${e.displayName}: ${total}`
-      if (e.baseline > 0) text += ` (${e.totalCorrect}+${e.baseline})`
-      text += '\n'
+      text += `${i + 1}. ${e.displayName}: ${e.totalCorrect}\n`
     })
     return text
   }
 
   const topTotal =
-    leaderboard.length > 0
-      ? leaderboard[0].baseline + leaderboard[0].totalCorrect
-      : 0
+    leaderboard.length > 0 ? leaderboard[0].totalCorrect : 0
 
   return (
     <div className="flex flex-col min-h-screen pb-24">
@@ -89,7 +84,7 @@ export function TallyScreen() {
         ) : (
           <div className="space-y-2">
             {leaderboard.map((e, i) => {
-              const total = e.baseline + e.totalCorrect
+              const total = e.totalCorrect
               const isLeader = total === topTotal && total > 0
               const isSelf = e.userId === userId
               const tappable = !isSelf
@@ -138,8 +133,6 @@ export function TallyScreen() {
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {e.daysPlayed} day{e.daysPlayed === 1 ? '' : 's'}
-                          {e.baseline > 0 &&
-                            ` · ${e.totalCorrect} + ${e.baseline} baseline`}
                         </p>
                       </div>
                     </div>
@@ -226,16 +219,12 @@ function H2HView({
   const userName = profile?.display_name ?? 'You'
   const friendName = opponent.displayName
 
-  const userBaseline = profile?.baseline_correct ?? 0
-  const friendBaseline = opponent.baseline
-  const hasBaseline = userBaseline > 0 || friendBaseline > 0
-
   const totals = tallies.reduce(
     (acc, d) => ({
       user: acc.user + d.userCorrect,
       friend: acc.friend + d.friendCorrect,
     }),
-    { user: userBaseline, friend: friendBaseline },
+    { user: 0, friend: 0 },
   )
   const leader =
     totals.user > totals.friend
@@ -358,7 +347,7 @@ function H2HView({
         </h2>
         {loading && tallies.length === 0 ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
-        ) : tallies.length === 0 && !hasBaseline ? (
+        ) : tallies.length === 0 ? (
           <Card className="border-border/30 bg-card/50">
             <CardContent className="p-4">
               <p className="text-sm text-muted-foreground text-center">
@@ -368,39 +357,6 @@ function H2HView({
           </Card>
         ) : (
           <div className="space-y-2">
-            {hasBaseline && (
-              <Card className="border-border/30 bg-card/50">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Before app</span>
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2 text-sm">
-                        <span
-                          className={cn(
-                            'font-bold',
-                            userBaseline > friendBaseline && 'text-primary',
-                          )}
-                        >
-                          {userBaseline}
-                        </span>
-                        <span className="text-muted-foreground">-</span>
-                        <span
-                          className={cn(
-                            'font-bold',
-                            friendBaseline > userBaseline && 'text-accent',
-                          )}
-                        >
-                          {friendBaseline}
-                        </span>
-                      </div>
-                      <span className="text-xs font-medium px-2 py-1 rounded-full min-w-[60px] text-center bg-muted text-muted-foreground">
-                        Baseline
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
             {tallies.map((day) => {
               const dayWinner =
                 day.userCorrect > day.friendCorrect

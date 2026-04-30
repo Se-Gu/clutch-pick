@@ -2,7 +2,6 @@ export interface Profile {
   id: string
   email: string
   display_name: string
-  baseline_correct: number
 }
 
 export interface GameDay {
@@ -44,7 +43,6 @@ export interface DailyTally {
 export interface LeaderboardEntry {
   userId: string
   displayName: string
-  baseline: number
   totalCorrect: number
   daysPlayed: number
 }
