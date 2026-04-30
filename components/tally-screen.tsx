@@ -46,10 +46,11 @@ export function TallyScreen() {
   }
 
   const buildScoreboardText = () => {
-    let text = '🏀 NBA Picks Leaderboard\n\n'
+    let text = '🏀 NBA Tahmin Sıralaması\n\n'
     leaderboard.forEach((e, i) => {
       text += `${i + 1}. ${e.displayName}: ${e.totalCorrect}\n`
     })
+    text += '\nhttps://clutch-pick.vercel.app'
     return text
   }
 
@@ -234,11 +235,11 @@ function H2HView({
       : null
 
   const buildScoreboardText = () => {
-    let text = `🏀 ${userName} vs ${friendName}\n\n`
+    let text = `🏀 ${userName} - ${friendName}\n\n`
     text += `${userName}: ${totals.user}\n`
     text += `${friendName}: ${totals.friend}\n\n`
-    text += `${leader ? `🏆 ${leader} leads!` : '🤝 Tied!'}\n\n`
-    text += `📅 Recent Results:\n`
+    text += `${leader ? `🏆 ${leader} önde!` : '🤝 Berabere!'}\n\n`
+    text += `📅 Son Sonuçlar:\n`
     tallies.slice(0, 5).forEach((day) => {
       const dayWinner =
         day.userCorrect > day.friendCorrect
@@ -250,6 +251,7 @@ function H2HView({
         dayWinner === 'U' ? '🔵' : dayWinner === 'F' ? '🔴' : '⚪'
       }\n`
     })
+    text += '\nhttps://clutch-pick.vercel.app'
     return text
   }
 

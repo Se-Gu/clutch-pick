@@ -35,10 +35,11 @@ export function TodayRosterScreen() {
     return () => clearInterval(id)
   }, [allOthersSubmitted, refreshSubmissionStatuses])
 
-  const buildReminderText = () => '🏀 I locked my NBA picks. Your turn!'
+  const buildReminderText = () =>
+    '🏀 NBA tahminlerimi kilitledim. Sıra sende!\n\nhttps://clutch-pick.vercel.app'
 
   const buildRevealText = () => {
-    let text = '🏀 Tonight\'s Picks Revealed!\n\n'
+    let text = '🏀 Bu Geceki Tahminler Açıklandı!\n\n'
     games.forEach((game) => {
       text += `${teamAbbr(game.away_team)} @ ${teamAbbr(game.home_team)}\n`
       const me = userPicks[game.id]
@@ -51,6 +52,7 @@ export function TodayRosterScreen() {
       }
       text += '\n'
     })
+    text += 'https://clutch-pick.vercel.app'
     return text
   }
 

@@ -91,8 +91,8 @@ export function RevealScreen() {
   const dayLabel = formatShortDate(prevGameDay.nba_date)
 
   const buildResultsText = () => {
-    let text = `🏀 NBA Picks — ${dayLabel}\n\n`
-    text += `📊 Standings:\n`
+    let text = `🏀 NBA Tahminleri — ${dayLabel}\n\n`
+    text += `📊 Sıralama:\n`
     standings.forEach((s, i) => {
       text += `${i + 1}. ${s.name}: ${s.correct}\n`
     })
@@ -110,6 +110,7 @@ export function RevealScreen() {
       }
       text += '\n'
     })
+    text += 'https://clutch-pick.vercel.app'
     return text
   }
 
