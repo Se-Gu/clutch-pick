@@ -41,6 +41,14 @@ export interface DailyTally {
   totalGames: number
 }
 
+export interface LeaderboardEntry {
+  userId: string
+  displayName: string
+  baseline: number
+  totalCorrect: number
+  daysPlayed: number
+}
+
 export function teamAbbr(name: string): string {
   const parts = name.trim().split(/\s+/)
   const last = parts[parts.length - 1] ?? name

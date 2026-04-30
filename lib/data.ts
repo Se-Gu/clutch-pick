@@ -4,6 +4,7 @@ import {
   type DailyTally,
   type Game,
   type GameDay,
+  type LeaderboardEntry,
   type Prediction,
   type Profile,
 } from './types'
@@ -17,13 +18,15 @@ export async function fetchProfile(userId: string): Promise<Profile | null> {
   return data as Profile | null
 }
 
-export async function fetchOtherProfile(currentUserId: string): Promise<Profile | null> {
+export async function fetchAllOtherProfiles(
+  currentUserId: string,
+): Promise<Profile[]> {
   const { data } = await supabase
     .from('profiles')
     .select('id, email, display_name, baseline_correct')
     .neq('id', currentUserId)
-    .limit(1)
-  return (data?.[0] as Profile) ?? null
+    .order('display_name', { ascending: true })
+  return (data as Profile[]) ?? []
 }
 
 export async function fetchCurrentGameDay(): Promise<GameDay | null> {
@@ -81,6 +84,20 @@ export async function hasUserSubmittedDay(
   return !!data
 }
 
+export async function fetchAllSubmissionStatuses(
+  gameDayId: string,
+): Promise<Record<string, boolean>> {
+  const { data } = await supabase
+    .from('daily_submissions')
+    .select('user_id')
+    .eq('game_day_id', gameDayId)
+  const map: Record<string, boolean> = {}
+  for (const row of (data ?? []) as { user_id: string }[]) {
+    map[row.user_id] = true
+  }
+  return map
+}
+
 export async function submitDay(params: {
   gameDayId: string
   userId: string
@@ -104,10 +121,18 @@ export async function submitDay(params: {
   if (error) throw error
 }
 
-export async function fetchPastTallies(
-  userId: string,
-  otherUserId: string | null,
-): Promise<DailyTally[]> {
+interface ClosedDayRow {
+  id: string
+  nba_date: string
+  status: string
+  games: Array<{
+    id: string
+    winner_team: string | null
+    predictions: Array<{ user_id: string; picked_team: string }> | null
+  }> | null
+}
+
+async function fetchClosedDays(limit: number): Promise<ClosedDayRow[]> {
   const { data } = await supabase
     .from('game_days')
     .select(
@@ -115,9 +140,57 @@ export async function fetchPastTallies(
     )
     .eq('status', 'closed')
     .order('nba_date', { ascending: false })
-    .limit(30)
+    .limit(limit)
+  return (data ?? []) as ClosedDayRow[]
+}
 
-  return (data ?? []).map((day: any) => {
+export async function fetchLeaderboard(): Promise<LeaderboardEntry[]> {
+  const [profiles, days] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('id, display_name, baseline_correct')
+      .then((r) => (r.data as Pick<Profile, 'id' | 'display_name' | 'baseline_correct'>[] | null) ?? []),
+    fetchClosedDays(365),
+  ])
+
+  const totals = new Map<string, { correct: number; days: Set<string> }>()
+  for (const day of days) {
+    for (const g of day.games ?? []) {
+      if (!g.winner_team) continue
+      for (const p of g.predictions ?? []) {
+        const entry = totals.get(p.user_id) ?? { correct: 0, days: new Set() }
+        entry.days.add(day.id)
+        if (p.picked_team === g.winner_team) entry.correct++
+        totals.set(p.user_id, entry)
+      }
+    }
+  }
+
+  const rows: LeaderboardEntry[] = profiles.map((p) => {
+    const t = totals.get(p.id)
+    return {
+      userId: p.id,
+      displayName: p.display_name,
+      baseline: p.baseline_correct ?? 0,
+      totalCorrect: t?.correct ?? 0,
+      daysPlayed: t?.days.size ?? 0,
+    }
+  })
+
+  rows.sort(
+    (a, b) =>
+      b.baseline + b.totalCorrect - (a.baseline + a.totalCorrect) ||
+      a.displayName.localeCompare(b.displayName),
+  )
+  return rows
+}
+
+export async function fetchHeadToHead(
+  userId: string,
+  otherUserId: string,
+): Promise<DailyTally[]> {
+  const days = await fetchClosedDays(30)
+  return days.map((day) => {
     let userCorrect = 0
     let friendCorrect = 0
     let totalGames = 0
@@ -127,7 +200,7 @@ export async function fetchPastTallies(
       for (const p of g.predictions ?? []) {
         if (p.picked_team !== g.winner_team) continue
         if (p.user_id === userId) userCorrect++
-        else if (otherUserId && p.user_id === otherUserId) friendCorrect++
+        else if (p.user_id === otherUserId) friendCorrect++
       }
     }
     return {

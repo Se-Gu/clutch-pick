@@ -13,12 +13,12 @@ export function TodayScreen() {
     games,
     gameDay,
     profile,
-    otherProfile,
+    otherProfiles,
     userPicks,
     setPick,
     submitPicks,
     hasSubmitted,
-    friendHasSubmitted,
+    submittedByUser,
     loading,
   } = useAppStore()
 
@@ -26,9 +26,11 @@ export function TodayScreen() {
   const pickedCount = games.filter((g) => userPicks[g.id]).length
 
   const userName = profile?.display_name ?? 'You'
-  const friendName = otherProfile?.display_name ?? 'Friend'
   const userInitial = userName.charAt(0).toUpperCase()
-  const friendInitial = friendName.charAt(0).toUpperCase()
+  const othersCount = otherProfiles.length
+  const othersSubmittedCount = otherProfiles.filter(
+    (p) => submittedByUser[p.id],
+  ).length
 
   if (loading && games.length === 0) {
     return (
@@ -98,16 +100,22 @@ export function TodayScreen() {
 
               <div className="flex items-center gap-3">
                 <div>
-                  <p className="text-sm font-medium text-right">{friendName}</p>
+                  <p className="text-sm font-medium text-right">Others</p>
                   <p className="text-xs text-muted-foreground text-right">
-                    {friendHasSubmitted ? 'Submitted' : 'Waiting...'}
+                    {othersCount === 0
+                      ? 'Solo slate'
+                      : `${othersSubmittedCount}/${othersCount} submitted`}
                   </p>
                 </div>
                 <div className={cn(
                   'w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold',
-                  friendHasSubmitted ? 'bg-green-500/20 text-green-400' : 'bg-muted text-muted-foreground'
+                  othersCount > 0 && othersSubmittedCount === othersCount
+                    ? 'bg-green-500/20 text-green-400'
+                    : 'bg-muted text-muted-foreground'
                 )}>
-                  {friendHasSubmitted ? '✓' : friendInitial}
+                  {othersCount > 0 && othersSubmittedCount === othersCount
+                    ? '✓'
+                    : othersCount}
                 </div>
               </div>
             </div>

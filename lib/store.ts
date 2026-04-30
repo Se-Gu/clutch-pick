@@ -5,11 +5,14 @@ import type { Game, GameDay, Profile } from './types'
 
 export type TabId = 'today' | 'reveal' | 'tally'
 
+export type PicksByUser = Record<string, Record<string, string>>
+export type SubmittedByUser = Record<string, boolean>
+
 interface AppStore {
   // Session
   userId: string | null
   profile: Profile | null
-  otherProfile: Profile | null
+  otherProfiles: Profile[]
   authChecked: boolean
   authListenerAttached: boolean
 
@@ -17,15 +20,15 @@ interface AppStore {
   gameDay: GameDay | null
   games: Game[]
   userPicks: Record<string, string> // gameId -> picked team name
-  friendPicks: Record<string, string>
+  picksByUser: PicksByUser // userId -> gameId -> team (excludes self)
   hasSubmitted: boolean
-  friendHasSubmitted: boolean
+  submittedByUser: SubmittedByUser // userId -> bool (excludes self)
 
   // Previous (yesterday's) game day
   prevGameDay: GameDay | null
   prevGames: Game[]
   prevUserPicks: Record<string, string>
-  prevFriendPicks: Record<string, string>
+  prevPicksByUser: PicksByUser
 
   // UI
   activeTab: TabId
@@ -39,71 +42,71 @@ interface AppStore {
   setActiveTab: (tab: TabId) => void
   setPick: (gameId: string, team: string) => void
   submitPicks: () => Promise<{ error?: string }>
-  refreshFriendStatus: () => Promise<void>
+  refreshSubmissionStatuses: () => Promise<void>
 }
 
 const resetState = {
   userId: null,
   profile: null,
-  otherProfile: null,
+  otherProfiles: [] as Profile[],
   gameDay: null,
   games: [],
   userPicks: {},
-  friendPicks: {},
+  picksByUser: {} as PicksByUser,
   hasSubmitted: false,
-  friendHasSubmitted: false,
+  submittedByUser: {} as SubmittedByUser,
   prevGameDay: null,
   prevGames: [],
   prevUserPicks: {},
-  prevFriendPicks: {},
+  prevPicksByUser: {} as PicksByUser,
 }
 
-async function loadTodayState(
-  gameDay: GameDay,
-  userId: string,
-  otherUserId: string | null,
-) {
-  const [games, allPreds, hasSub, friendSub] = await Promise.all([
+function foldPredictions(
+  preds: Awaited<ReturnType<typeof data.fetchAllPredictionsForDay>>,
+  selfId: string,
+): { selfPicks: Record<string, string>; othersPicks: PicksByUser } {
+  const selfPicks: Record<string, string> = {}
+  const othersPicks: PicksByUser = {}
+  for (const p of preds) {
+    if (p.user_id === selfId) {
+      selfPicks[p.game_id] = p.picked_team
+    } else {
+      const m = othersPicks[p.user_id] ?? (othersPicks[p.user_id] = {})
+      m[p.game_id] = p.picked_team
+    }
+  }
+  return { selfPicks, othersPicks }
+}
+
+async function loadTodayState(gameDay: GameDay, userId: string) {
+  const [games, allPreds, submitted] = await Promise.all([
     data.fetchGames(gameDay.id),
     data.fetchAllPredictionsForDay(gameDay.id),
-    data.hasUserSubmittedDay(gameDay.id, userId),
-    otherUserId
-      ? data.hasUserSubmittedDay(gameDay.id, otherUserId)
-      : Promise.resolve(false),
+    data.fetchAllSubmissionStatuses(gameDay.id),
   ])
-  const userPicks: Record<string, string> = {}
-  const friendPicks: Record<string, string> = {}
-  for (const p of allPreds) {
-    if (p.user_id === userId) userPicks[p.game_id] = p.picked_team
-    else if (otherUserId && p.user_id === otherUserId)
-      friendPicks[p.game_id] = p.picked_team
-  }
+  const { selfPicks, othersPicks } = foldPredictions(allPreds, userId)
+  const submittedByUser: SubmittedByUser = { ...submitted }
+  delete submittedByUser[userId]
   return {
     games,
-    userPicks,
-    friendPicks,
-    hasSubmitted: hasSub,
-    friendHasSubmitted: friendSub,
+    userPicks: selfPicks,
+    picksByUser: othersPicks,
+    hasSubmitted: !!submitted[userId],
+    submittedByUser,
   }
 }
 
-async function loadPrevState(
-  prevGameDay: GameDay,
-  userId: string,
-  otherUserId: string | null,
-) {
+async function loadPrevState(prevGameDay: GameDay, userId: string) {
   const [prevGames, allPreds] = await Promise.all([
     data.fetchGames(prevGameDay.id),
     data.fetchAllPredictionsForDay(prevGameDay.id),
   ])
-  const prevUserPicks: Record<string, string> = {}
-  const prevFriendPicks: Record<string, string> = {}
-  for (const p of allPreds) {
-    if (p.user_id === userId) prevUserPicks[p.game_id] = p.picked_team
-    else if (otherUserId && p.user_id === otherUserId)
-      prevFriendPicks[p.game_id] = p.picked_team
+  const { selfPicks, othersPicks } = foldPredictions(allPreds, userId)
+  return {
+    prevGames,
+    prevUserPicks: selfPicks,
+    prevPicksByUser: othersPicks,
   }
-  return { prevGames, prevUserPicks, prevFriendPicks }
 }
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -136,30 +139,35 @@ export const useAppStore = create<AppStore>((set, get) => ({
       return
     }
     const userId = session.user.id
-    const [profile, otherProfile, gameDay, prevGameDay] = await Promise.all([
+    const [profile, otherProfiles, gameDay, prevGameDay] = await Promise.all([
       data.fetchProfile(userId),
-      data.fetchOtherProfile(userId),
+      data.fetchAllOtherProfiles(userId),
       data.fetchCurrentGameDay(),
       data.fetchPreviousGameDay(),
     ])
 
     const today = gameDay
-      ? await loadTodayState(gameDay, userId, otherProfile?.id ?? null)
+      ? await loadTodayState(gameDay, userId)
       : {
           games: [],
           userPicks: {},
+          picksByUser: {} as PicksByUser,
           hasSubmitted: false,
-          friendHasSubmitted: false,
+          submittedByUser: {} as SubmittedByUser,
         }
 
     const prev = prevGameDay
-      ? await loadPrevState(prevGameDay, userId, otherProfile?.id ?? null)
-      : { prevGames: [], prevUserPicks: {}, prevFriendPicks: {} }
+      ? await loadPrevState(prevGameDay, userId)
+      : {
+          prevGames: [],
+          prevUserPicks: {},
+          prevPicksByUser: {} as PicksByUser,
+        }
 
     set({
       userId,
       profile,
-      otherProfile,
+      otherProfiles,
       gameDay,
       prevGameDay,
       ...today,
@@ -196,20 +204,18 @@ export const useAppStore = create<AppStore>((set, get) => ({
         picks,
       })
       set({ hasSubmitted: true })
+      // Re-fetch so RLS-revealed picks from already-submitted users show up.
+      await get().refreshSubmissionStatuses()
       return {}
     } catch (e: any) {
       return { error: e?.message ?? 'Failed to submit picks' }
     }
   },
 
-  refreshFriendStatus: async () => {
+  refreshSubmissionStatuses: async () => {
     const s = get()
     if (!s.gameDay || !s.userId) return
-    const today = await loadTodayState(
-      s.gameDay,
-      s.userId,
-      s.otherProfile?.id ?? null,
-    )
+    const today = await loadTodayState(s.gameDay, s.userId)
     set(today)
   },
 }))
