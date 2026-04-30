@@ -7,6 +7,7 @@ import { TodayRosterScreen } from '@/components/today-roster-screen'
 import { RevealScreen } from '@/components/reveal-screen'
 import { TallyScreen } from '@/components/tally-screen'
 import { BottomNav } from '@/components/bottom-nav'
+import { ThemeToggle } from '@/components/theme-toggle'
 import { useAppStore } from '@/lib/store'
 
 export default function Home() {
@@ -26,7 +27,14 @@ export default function Home() {
   }
 
   if (!userId) {
-    return <LoginScreen />
+    return (
+      <>
+        <LoginScreen />
+        <div className="fixed top-4 right-4 z-20">
+          <ThemeToggle />
+        </div>
+      </>
+    )
   }
 
   return (
@@ -36,6 +44,9 @@ export default function Home() {
       {activeTab === 'reveal' && <RevealScreen />}
       {activeTab === 'tally' && <TallyScreen />}
       <BottomNav />
+      <div className="fixed top-4 right-4 z-20">
+        <ThemeToggle />
+      </div>
     </main>
   )
 }
